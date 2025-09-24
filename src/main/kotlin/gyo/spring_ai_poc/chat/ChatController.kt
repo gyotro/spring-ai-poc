@@ -14,6 +14,9 @@ import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.prompt.ChatOptions
 import org.springframework.ai.tool.function.FunctionToolCallback
 import org.springframework.beans.factory.ObjectProvider
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.CommandLineRunner
+import org.springframework.context.annotation.Bean
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -57,7 +60,7 @@ class ChatController(private val chatClient: ChatClient.Builder,
     }
 
 
-    @GetMapping("/ai/chat", produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
+    @GetMapping("/ai/chat")
     fun chat(@RequestParam(defaultValue = "What's the weather in Rome?") message: String): Flux<String> {
         logger.info("Chat: $message")
 
@@ -96,38 +99,15 @@ class ChatController(private val chatClient: ChatClient.Builder,
             )
             .options(
                 ChatOptions.builder()
-                    .temperature(0.35) // ✅ slightly higher than 0.2 to allow tool calls
+                    .temperature(0.25) // ✅ slightly higher than 0.2 to allow tool calls
                     .build()
             )
             .toolCallbacks(weatherToolCallback)
             .stream()
             .content()
-            .filter { it.isNotBlank() }
+/*            .filter { it.isNotBlank() }
             .buffer(10)
-            .map { it.joinToString(" ") }
-    }
-
-    @GetMapping("/ai/test")
-    fun testWeather(@RequestParam message: String): String {
-        val weatherToolCallback = FunctionToolCallback.builder<Map<String, Any>, String>("getWeather") { input, _ ->
-            val location = (input["location"] as? String)?.trim() ?: "unknown"
-            val tool = toolRegistryProvider.ifAvailable?.getTool("getWeather")
-                ?: return@builder "Weather tool unavailable"
-
-            val result = runBlocking { tool.runWithArgs(mapOf("location" to location)) }
-            "The current weather in $location is: $result"
-        }
-            .description("Get current weather for a given location")
-            .inputType(Map::class.java)
-            .build()
-
-        return chatClient.build().prompt()
-            .user(message)
-            .system("You are a helpful assistant. Use the weather tool only for weather questions.")
-            .toolCallbacks(weatherToolCallback)
-            .call() // ✅ blocking call, no streaming
-            .content() ?: "No answer"
-
+            .map { it.joinToString(" ") }*/
     }
 
 
@@ -136,6 +116,11 @@ class ChatController(private val chatClient: ChatClient.Builder,
         @Suppress("UNCHECKED_CAST")
         return (this as Tool<Map<String, Any?>, Any?>).run { args }
     }
-
+    @Bean
+    fun logMistralApiKey(
+        @Value("\${spring.ai.mistralai.api-key}") mistralKey: String
+    ) = CommandLineRunner {
+        logger.info("🔑 Spring resolved Mistral API Key: $mistralKey")
+    }
 
 }
